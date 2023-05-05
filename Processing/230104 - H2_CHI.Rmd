@@ -1,0 +1,1064 @@
+---
+title: "221220 - H2"
+output: html_document
+date: "2022-12-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Input
+
+```{r}
+#For fast running fast_running = 1, if not fast_running = 0
+fast_running = 1
+```
+
+
+```{r}
+library(pacman)
+p_load(tidyverse, janitor, here, haven, labelled, sjmisc, skimr, jtools,
+       stargazer, IsingFit, qgraph, Matrix, igraph, NetworkComparisonTest, bootnet,
+       rio, IsingSampler, compute.es, foreign, mgm, matrixcalc, openxlsx, ggplot2)
+```
+
+## Objects
+
+```{r}
+shortnames <- c(
+"ib_weafam", "ib_edupar", "ib_edu", "ib_work",   "ib_people", "ib_pol",   
+"ib_bribes", "ib_race",   "ib_relig",  "ib_sex", 
+"ineq_per","ineq_ang", "ineq_jud",  
+"red_pub",   "red_pri",   "red_unca",  "red_unsu", 
+"tax_bel",  "tax_per",   
+"pay_resp",  "pay_educ",  "pay_need",  "pay_merit")
+
+longnames <- c(
+  "Inequality belief - wealthy family",
+  "Inequality belief - parental education",
+  "Inequality belief - education",
+  "Inequality belief - work",
+  "Inequality belief - people",
+  "Inequality belief - politics",
+  "Inequality belief - bribes",
+  "Inequality belief - race",
+  "Inequality belief - religion",
+  "Inequality belief - sex",
+  
+  "Perception - inequality",
+  "Judgment - angry for inequality",
+  "Judgment - unfairness of income distribution",
+  
+  "Belief - preference for public redistribution",
+  "Belief - preference for private redistribution",
+  "Judgment - politicians don't care of redistribution",
+  "Judgment - government unsuccess in redistribution",
+  
+  "Belief - tax progressivity",
+  "Perception - low taxes",
+  
+  "Pay belief - responsability",
+  "Pay belief - education",
+  "Pay belief - need",
+  "Pay belief - merit")
+  
+
+type <-c("g","g","g","g","g","g","g","g","g","g","g","g","g",
+         "g","g","g","g","g","g","g","g","g","g")
+
+
+level <-c("1","1","1","1","1","1","1","1","1","1","1","1","1",
+          "1","1","1","1","1","1","1","1","1","1")
+
+communityStability <- function(data, type, level, iterations)
+{
+  
+  communityMemberships <- list()
+  
+  for (i in 1:iterations)
+  {
+    fitGraph <- mgm(data, type, level, k = 2, verbatim = TRUE)
+    iGraph<- graph_from_adjacency_matrix(abs
+                                         (fitGraph$pairwise$wadj), "undirected", weighted =
+                                           TRUE)
+    communityMemberships[[i]] <- cluster_walktrap(iGraph)$membership
+  }
+  
+  communityOverlap <- matrix(NA, length(data), length(data))
+  
+  for(j in 1:length(data))
+  {
+    
+    overlapPerNode <- matrix(NA, iterations, ncol(communityOverlap))
+    
+    for(k in 1: iterations)
+    {
+      overlapPerNode[k,] <- as.numeric(communityMemberships[[k]][j] == communityMemberships[[k]])
+    }
+    
+    communityOverlap[j,] <- apply(overlapPerNode, 2, mean)
+  }
+  
+  diag(communityOverlap) <- 0
+  
+  return(list(communityMemberships = communityMemberships, communityOverlap = communityOverlap))
+  
+}
+```
+
+```{r}
+
+#Income
+income0<- import("../Input/NCT/income0.csv")
+income1<- import("../Input/NCT/income1.csv")
+
+#Education
+edu0<- import("../Input/NCT/edu0.csv")
+edu1<- import("../Input/NCT/edu1.csv")
+
+#Social class
+egpclass0<- import("../Input/NCT/egpclass0.csv")
+egpclass1<- import("../Input/NCT/egpclass1.csv")
+
+#Subjective social class
+subclass0<- import("../Input/NCT/subclass0.csv")
+subclass1<- import("../Input/NCT/subclass1.csv")
+
+#Subjective social mobility
+socmob0<- import("../Input/NCT/socmob0.csv")
+socmob1<- import("../Input/NCT/socmob1.csv")
+
+```
+
+## Fast running
+
+```{r}
+
+if (fast_running==1) {
+  
+#NCTs
+NCT_income = readRDS(here("Input", "NCT", "results", "NCT_income.rds"))
+NCT_edu = readRDS(here("Input", "NCT", "results", "NCT_edu.rds"))
+NCT_egpclass = readRDS(here("Input", "NCT", "results", "NCT_egpclass.rds"))
+NCT_subclass = readRDS(here("Input", "NCT", "results", "NCT_subclass.rds"))
+NCT_socmob = readRDS(here("Input", "NCT", "results", "NCT_socmob.rds"))
+
+#Communities
+Comm_income0 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_income0.rds"))
+Comm_income1 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_income1.rds"))
+
+Comm_edu0 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_edu0.rds"))
+Comm_edu1 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_edu1.rds"))
+
+Comm_egpclass0 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_egpclass0.rds"))
+Comm_egpclass1 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_egpclass1.rds"))
+
+Comm_subclass0 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_subclass0.rds"))
+Comm_subclass1 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_subclass1.rds"))
+
+Comm_socmob0 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_socmob0.rds"))
+Comm_socmob1 = readRDS(here("Input", "NCT", "results", "detected_comm", "Comm_socmob1.rds"))
+
+} else {
+  
+### As comments
+
+#NCT (connectivity, [omnibus:]edges, centrality)
+set.seed(1)
+NCT_income <- NCT(income1,income0, it = 1000,
+                test.edges = TRUE, edges = "all",
+                test.centrality = TRUE, centrality = "strength", nodes = "all")
+
+#Comm detection 
+Comm_income0<-communityStability(income0, type, level, it=1000)
+Comm_income1<-communityStability(income1, type, level, it=1000)
+
+#NCT (connectivity, [omnibus:]edges, centrality)
+set.seed(1)
+NCT_edu <- NCT(edu1,edu0, it = 1000,
+                test.edges = TRUE, edges = "all",
+                test.centrality = TRUE, centrality = "strength", nodes = "all")
+
+#Comm detection 
+Comm_edu0<-communityStability(edu0, type, level, it=1000)
+Comm_edu1<-communityStability(edu1, type, level, it=1000)
+
+#NCT (connectivity, [omnibus:]edges, centrality)
+set.seed(1)
+NCT_egpclass <- NCT(egpclass1, egpclass0, it = 1000,
+                test.edges = TRUE, edges = "all",
+                test.centrality = TRUE, centrality = "strength", nodes = "all")
+
+#Comm detection 
+Comm_egpclass0<-communityStability(egpclass0, type, level, it=1000)
+Comm_egpclass1<-communityStability(egpclass1, type, level, it=1000)
+
+#NCT (connectivity, [omnibus:]edges, centrality)
+set.seed(1)
+NCT_socmob <- NCT(socmob1, socmob0, it = 1000,
+                test.edges = TRUE, edges = "all",
+                test.centrality = TRUE, centrality = "strength", nodes = "all")
+
+#Comm detection 
+Comm_socmob0<-communityStability(socmob0, type, level, it=1000)
+Comm_socmob1<-communityStability(socmob1, type, level, it=1000)
+
+}
+
+```
+
+
+# Processing
+
+## Networks by sociodem
+
+### Income
+
+```{r}
+#graph NCT
+
+#input 
+income0Fit <- mgm(income0, type, level, k = 2, binarySign = TRUE)
+income1Fit <- mgm(income1, type, level, k = 2, binarySign = TRUE)
+
+#transform
+inputNCT_income <- income1Fit$pairwise$wadj - income0Fit$pairwise$wadj
+inputNCT_income[upper.tri(inputNCT_income)][which(NCT_income$einv.pvals$`p-value`>= .05)] <- 0
+inputNCT_income <- forceSymmetric(inputNCT_income)
+
+#plot
+set.seed(1)
+dir.create('../Output/H2/income')
+pdf(file = '../Output/H2/income/NCT_income.pdf', paper = "USr", 
+    height = 9, width = 12)
+qgraph(inputNCT_income, layout = "spring", edge.labels = TRUE, edge.label.cex = 0.4, esize = 2, vsize = 5,
+       theme = "Borkulo", labels = shortnames, nodeNames = longnames, edge.label.position = 0.5,
+       legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+```{r}
+# Graph Centrality comparison
+
+#income0
+income0_cent<-qgraph(income0Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_income0 <- centralityTable(income0_cent,standardized = FALSE)
+centralityPlot(income0_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#income1
+income1_cent<-qgraph(income1Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_income1 <- centralityTable(income1_cent,standardized = FALSE)
+centralityPlot(income1_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#comparison
+pdf(file= '../Output/H2/income/centrality_income.pdf')
+centralityPlot(list(Low=income0_cent, High=income1_cent), include = c("Strength"),
+               scale = "raw", orderBy = "Strength")
+dev.off()
+```
+
+```{r}
+#Graph detected comm
+ inputComm_income0<-Comm_income0$communityOverlap
+ inputComm_income0[which(inputComm_income0 <= .90)] <- 0
+ pdf(file = '../Output/H2/income/communities_income0.pdf',paper = "USr",
+     height = 9, width = 12)
+ qgraph(inputComm_income0, layout = "spring", theme = "Borkulo",
+        labels = shortnames, nodeNames = longnames, vsize=4.0,
+        edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+ dev.off()
+ 
+ inputComm_income1<-Comm_income1$communityOverlap
+ inputComm_income1[which(inputComm_income1 <= .90)] <- 0
+ pdf(file = '../Output/H2/income/communities_income1.pdf',paper = "USr",
+     height = 9, width = 12)
+ qgraph(inputComm_income1, layout = "spring", theme = "Borkulo",
+        labels = shortnames, nodeNames = longnames, vsize=4.0,
+        edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+ dev.off()
+```
+
+
+```{r}
+group_inc0 <- list(
+ " "=c(1,2),
+ " "=c(3,4),
+ " "=c(5,6,7),
+ " "=c(8,9,10),
+ " "=c(11,14,15),
+ " "=c(16,18),
+ " "=c(12,13,17,19),
+ " "=c(20:23))
+cols_0 <- c("#FED9A6", "#DECBE4", "#FFFFCC", "#CCEBC5", "#E5D8BD", "#B3CDE3", "#FBB4AE", "#FDDAEC")
+
+group_inc1 <- list(
+ " "=c(1:7),
+ " "=c(8,9,10),
+ " "=c(11,14,15,16,18),
+ " "=c(12,13,17,19),
+ " "=c(20:23))
+cols_1 <-  c("#FFFFCC","#CCEBC5","#E5D8BD","#FBB4AE","#FDDAEC")
+
+## Prepare plot
+inputgraph_0 <- income0Fit$pairwise$wadj
+signs_0 <- income0Fit$pairwise$signs
+signs_0[which(is.na(signs_0))] <- 1
+inputgraph_0 <- inputgraph_0*signs_0
+
+pdf(file = '../Output/H2/income/income0.pdf', paper = "USr", height = 9, width = 12)
+graph_0<-qgraph(inputgraph_0, 
+  layout = "spring", theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_inc0, color= cols_0,
+  legend = TRUE, legend.cex = 0.2)
+dev.off()
+
+inputgraph_1 <- income1Fit$pairwise$wadj
+signs_1 <- income1Fit$pairwise$signs
+signs_1[which(is.na(signs_1))] <- 1
+inputgraph_1 <- inputgraph_1*signs_1
+
+pdf(file = '../Output/H2/income/income1.pdf', paper = "USr", height = 9, width = 12)
+graph_1<-qgraph(inputgraph_1, 
+  layout = "spring", theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_inc1, color= cols_1,
+  legend = TRUE, legend.cex = 0.2)
+dev.off()
+
+#multiplot
+pdf(file= '../Output/H2/income/COMPARISON.pdf', paper = "USr", 
+    height = 9, width = 12)
+L<-averageLayout(graph_0,graph_1)
+lmat <- matrix(1:2, 1)
+lo <- layout(lmat, width = c(1, 1))
+graph_0<-qgraph(inputgraph_0, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, minimum = 0.05, maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_inc0, color= cols_0,
+  legend = FALSE, title = "Low income")
+graph_1<-qgraph(inputgraph_1, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, minimum = 0.05, maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_inc1, color= cols_1,
+  legend = FALSE,  title = "High income")
+dev.off()
+```
+
+
+### Education
+
+```{r}
+#graph
+
+ #input 
+edu0Fit <- mgm(edu0, type, level, k = 2, binarySign = TRUE)
+edu1Fit <- mgm(edu1, type, level, k = 2, binarySign = TRUE)
+inputNCT_edu <- edu1Fit$pairwise$wadj - edu0Fit$pairwise$wadj
+inputNCT_edu[upper.tri(inputNCT_edu)][which(NCT_edu$einv.pvals$`p-value`>= .05)] <- 0
+inputNCT_edu <- forceSymmetric(inputNCT_edu)
+
+#plot
+dir.create('../Output/H2/edu')
+pdf(file = '../Output/H2/edu/NCT_edu.pdf', paper = "USr", 
+    height = 9, width = 12)
+qgraph(inputNCT_edu, layout = "spring", edge.labels = TRUE, esize = 1, vsize = 4,
+       theme = "Borkulo", labels = shortnames, nodeNames = longnames, 
+       legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+```{r}
+# Centrality comparison
+
+#edu0
+edu0_cent<-qgraph(edu0Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_edu0 <- centralityTable(edu0_cent,standardized = FALSE)
+centralityPlot(edu0_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#edu1
+edu1_cent<-qgraph(edu1Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_edu1 <- centralityTable(edu1_cent,standardized = FALSE)
+centralityPlot(edu1_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#comparison
+pdf(file= '../Output/H2/edu/centrality_edu.pdf')
+centralityPlot(list(Low=edu0_cent, High=edu1_cent), include = c("Strength"),
+               scale = "raw", orderBy = "Strength")
+dev.off()
+```
+```{r}
+#Graph detected comm
+inputComm_edu0<-Comm_edu0$communityOverlap
+inputComm_edu0[which(inputComm_edu0 <= .90)] <- 0
+pdf(file = '../Output/H2/edu/communities_edu0.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_edu0, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+
+inputComm_edu1<-Comm_edu1$communityOverlap
+inputComm_edu1[which(inputComm_edu1 <= .90)] <- 0
+pdf(file = '../Output/H2/edu/communities_edu1.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_edu1, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+```{r}
+group_edu0 <- list(
+ " "=c(1:5),
+ " "=c(6:7),
+ " "=c(8,9,10),
+ " "=c(11,14,15,16,18),
+ " "=c(12,19),
+ " "=c(13,17),
+ " "=c(20:23))
+cols_0 <-  c("#FED9A6", "#DECBE4", "#FFFFCC", "#CCEBC5", "#E5D8BD", "#B3CDE3", "#FBB4AE", "#FDDAEC")
+
+group_edu1 <- list(
+ " "=c(1:5),
+ " "=c(6,7),
+ " "=c(8,9,10),
+ " "=c(11:19),
+ " "=c(20:21, 23),
+ " "=c(22))
+cols_1 <- c("#FED9A6","#DECBE4","#FFFFCC","#CCEBC5","#FBB4AE","#FDDAEC" )
+
+## Prepare plot
+inputgraph_0 <- edu0Fit$pairwise$wadj
+signs_0 <- edu0Fit$pairwise$signs
+signs_0[which(is.na(signs_0))] <- 1
+inputgraph_0 <- inputgraph_0*signs_0
+
+pdf(file = '../Output/H2/edu/edu0.pdf', paper = "USr", height = 9, width = 12)
+graph_0<-qgraph(inputgraph_0, 
+  layout = "spring", theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_edu0, color= cols_0,
+  legend = TRUE, legend.cex = 0.2)
+dev.off()
+
+inputgraph_1 <- edu1Fit$pairwise$wadj
+signs_1 <- edu1Fit$pairwise$signs
+signs_1[which(is.na(signs_1))] <- 1
+inputgraph_1 <- inputgraph_1*signs_1
+
+pdf(file = '../Output/H2/edu/edu1.pdf', paper = "USr", height = 9, width = 12)
+graph_1<-qgraph(inputgraph_1, 
+  layout = "spring", theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_edu1, color= cols_1,
+  legend = TRUE, legend.cex = 0.2)
+dev.off()
+
+#multiplot
+pdf(file= '../Output/H2/edu/COMPARISON.pdf', paper = "USr", 
+    height = 9, width = 12)
+L<-averageLayout(graph_0,graph_1)
+lmat <- matrix(1:2, 1)
+lo <- layout(lmat, width = c(1, 1))
+graph_0<-qgraph(inputgraph_0, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, #minimum = 0.05,
+  maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_edu0, color= cols_0,
+  legend = FALSE, title = "Low education")
+graph_1<-qgraph(inputgraph_1, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,nodeNames = longnames,
+  cut = 0.10, #minimum = 0.05, 
+  maximum = 1, 
+  details = FALSE, vsize=6.0, 
+  groups=group_edu1, color= cols_1,
+  legend = FALSE,  title = "High education")
+dev.off()
+```
+
+
+### EGP social class
+
+```{r}
+#graph
+
+ #input 
+egpclass0Fit <- mgm(egpclass0, type, level, k = 2, binarySign = TRUE)
+egpclass1Fit <- mgm(egpclass1, type, level, k = 2, binarySign = TRUE)
+inputNCT_egpclass <- egpclass1Fit$pairwise$wadj - egpclass0Fit$pairwise$wadj
+inputNCT_egpclass[upper.tri(inputNCT_egpclass)][which(NCT_egpclass$einv.pvals$`p-value`>= .05)] <- 0
+inputNCT_egpclass <- forceSymmetric(inputNCT_egpclass)
+
+#plot
+dir.create('../Output/H2/egpclass')
+pdf(file = '../Output/H2/egpclass/NCT_egpclass.pdf', paper = "USr", 
+    height = 9, width = 12)
+qgraph(inputNCT_egpclass, layout = "spring", edge.labels = TRUE, esize = 1, vsize = 4,
+       theme = "Borkulo", labels = shortnames, nodeNames = longnames, 
+       legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+```{r}
+# Centrality comparison
+
+#egpclass0
+egpclass0_cent<-qgraph(egpclass0Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_egpclass0 <- centralityTable(egpclass0_cent,standardized = FALSE)
+centralityPlot(egpclass0_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#egpclass1
+egpclass1_cent<-qgraph(egpclass1Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_egpclass1 <- centralityTable(egpclass1_cent,standardized = FALSE)
+centralityPlot(egpclass1_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#comparison
+pdf(file= '../Output/H2/egpclass/centrality_egpclass.pdf')
+centralityPlot(list(Low=egpclass0_cent, High=egpclass1_cent), include = c("Strength"),
+               scale = "raw", orderBy = "Strength")
+dev.off()
+```
+
+```{r}
+#Graph detected comm
+inputComm_egpclass0<-Comm_egpclass0$communityOverlap
+inputComm_egpclass0[which(inputComm_egpclass0 <= .90)] <- 0
+pdf(file = '../Output/H2/egpclass/communities_egpclass0.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_egpclass0, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+
+inputComm_egpclass1<-Comm_egpclass1$communityOverlap
+inputComm_egpclass1[which(inputComm_egpclass1 <= .90)] <- 0
+pdf(file = '../Output/H2/egpclass/communities_egpclass1.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_egpclass1, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+
+### Subjective social class
+
+```{r}
+#graph
+
+ #input 
+subclass0Fit <- mgm(subclass0, type, level, k = 2, binarySign = TRUE)
+subclass1Fit <- mgm(subclass1, type, level, k = 2, binarySign = TRUE)
+inputNCT_subclass <- subclass1Fit$pairwise$wadj - subclass0Fit$pairwise$wadj
+inputNCT_subclass[upper.tri(inputNCT_subclass)][which(NCT_subclass$einv.pvals$`p-value`>= .05)] <- 0
+inputNCT_subclass <- forceSymmetric(inputNCT_subclass)
+
+#plot
+dir.create('../Output/H2/subclass')
+pdf(file = '../Output/H2/subclass/NCT_subclass.pdf', paper = "USr", 
+    height = 9, width = 12)
+qgraph(inputNCT_subclass, layout = "spring", edge.labels = TRUE, esize = 1, vsize = 4,
+       theme = "Borkulo", labels = shortnames, nodeNames = longnames, 
+       legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+```{r}
+# Centrality comparison
+
+#subclass0
+subclass0_cent<-qgraph(subclass0Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_subclass0 <- centralityTable(subclass0_cent,standardized = FALSE)
+centralityPlot(subclass0_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#subclass1
+subclass1_cent<-qgraph(subclass1Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_subclass1 <- centralityTable(subclass1_cent,standardized = FALSE)
+centralityPlot(subclass1_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#comparison
+pdf(file= '../Output/H2/subclass/centrality_subclass.pdf')
+centralityPlot(list(Low=subclass0_cent, High=subclass1_cent), include = c("Strength"),
+               scale = "raw", orderBy = "Strength")
+dev.off()
+```
+
+```{r}
+#Graph detected comm
+inputComm_subclass0<-Comm_subclass0$communityOverlap
+inputComm_subclass0[which(inputComm_subclass0 <= .90)] <- 0
+pdf(file = '../Output/H2/subclass/communities_subclass0.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_subclass0, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+
+inputComm_subclass1<-Comm_subclass1$communityOverlap
+inputComm_subclass1[which(inputComm_subclass1 <= .90)] <- 0
+pdf(file = '../Output/H2/subclass/communities_subclass1.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_subclass1, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+
+### Subjective social mobility
+
+```{r}
+#graph
+
+ #input 
+socmob0Fit <- mgm(socmob0, type, level, k = 2, binarySign = TRUE)
+socmob1Fit <- mgm(socmob1, type, level, k = 2, binarySign = TRUE)
+inputNCT_socmob <- socmob1Fit$pairwise$wadj - socmob0Fit$pairwise$wadj
+inputNCT_socmob[upper.tri(inputNCT_socmob)][which(NCT_socmob$einv.pvals$`p-value`>= .05)] <- 0
+inputNCT_socmob <- forceSymmetric(inputNCT_socmob)
+
+#plot
+dir.create('../Output/H2/socmob')
+pdf(file = '../Output/H2/socmob/NCT_socmob.pdf', paper = "USr", 
+    height = 9, width = 12)
+qgraph(inputNCT_socmob, layout = "spring", edge.labels = TRUE, esize = 1, vsize = 4,
+       theme = "Borkulo", labels = shortnames, nodeNames = longnames, 
+       legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+```{r}
+# Centrality comparison
+
+#socmob0
+socmob0_cent<-qgraph(socmob0Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_socmob0 <- centralityTable(socmob0_cent,standardized = FALSE)
+centralityPlot(socmob0_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#socmob1
+socmob1_cent<-qgraph(socmob1Fit$pairwise$wadj, 
+  layout = "spring", theme = "colorblind",
+  labels = longnames, minimum = 0,
+  cut = 0.10, maximum = 1, details = TRUE,
+  legend = FALSE)
+#centrality Total
+cent_socmob1 <- centralityTable(socmob1_cent,standardized = FALSE)
+centralityPlot(socmob1_cent, include = c("Strength"),scale = "raw",
+               orderBy = "Strength")
+
+#comparison
+pdf(file= '../Output/H2/socmob/centrality_socmob.pdf')
+centralityPlot(list(Low=socmob0_cent, High=socmob1_cent), include = c("Strength"),
+               scale = "raw", orderBy = "Strength")
+dev.off()
+```
+
+```{r}
+#Graph detected comm
+inputComm_socmob0<-Comm_socmob0$communityOverlap
+inputComm_socmob0[which(inputComm_socmob0 <= .90)] <- 0
+pdf(file = '../Output/H2/socmob/communities_socmob0.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_socmob0, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+
+inputComm_socmob1<-Comm_socmob1$communityOverlap
+inputComm_socmob1[which(inputComm_socmob1 <= .90)] <- 0
+pdf(file = '../Output/H2/socmob/communities_socmob1.pdf',paper = "USr",
+    height = 9, width = 12)
+qgraph(inputComm_socmob1, layout = "spring", theme = "Borkulo",
+       labels = shortnames, nodeNames = longnames, vsize=4.0,
+       edge.labels=FALSE, legend = TRUE, legend.cex = 0.3)
+dev.off()
+```
+
+
+## Graphs
+
+### Graph edge weights
+
+```{r}
+#income
+inputNCT_income_abs = abs(inputNCT_income) 
+sum_income_c = colSums(inputNCT_income_abs)
+sum_income = sum(sum_income_c)
+
+#educ
+inputNCT_edu_abs = abs(inputNCT_edu) 
+sum_edu_c = colSums(inputNCT_edu_abs)
+sum_edu = sum(sum_edu_c)
+
+#egpclass
+inputNCT_egpclass_abs = abs(inputNCT_egpclass) 
+sum_egpclass_c = colSums(inputNCT_egpclass_abs)
+sum_egpclass = sum(sum_egpclass_c)
+
+#subclass
+inputNCT_subclass_abs = abs(inputNCT_subclass) 
+sum_subclass_c = colSums(inputNCT_subclass_abs)
+sum_subclass = sum(sum_subclass_c)
+
+#socmob
+inputNCT_socmob_abs = abs(inputNCT_socmob) 
+sum_socmob_c = colSums(inputNCT_socmob_abs)
+sum_socmob = sum(sum_socmob_c)
+
+#Graph
+graph_edgew = tibble(variable = c("Income", "Education level", "Social class", "Subjective social class", 
+                                  "Subjectvie social mobility"),
+                   dif = c(sum_income, sum_edu, sum_egpclass, sum_subclass, sum_socmob)) %>% 
+  arrange(desc(dif)) %>% 
+  ggplot(aes(x=reorder(variable, -dif), y = dif, fill=variable)) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=round(dif,2)), vjust=-0.5, size=3) +
+  labs(y = "Differences in edge weights", x="Stratification measures") +
+  scale_y_continuous(limits = c(0,3)) +
+  theme_nice() +
+  theme(legend.position = "none") + 
+  scale_fill_brewer(palette = "Pastel1")
+
+ggsave(here("Output", "H2", "graph_edgew.jpg"), graph_edgew, height = 6, width = 10)
+
+graph_edgew
+```
+
+### Graph connectivity
+
+```{r}
+#Income 
+SPLMGM <- centrality(income0_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_income0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(income1_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_income1 <- mean(SPLMGM)
+
+#edu
+SPLMGM <- centrality(edu0_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_edu0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(edu1_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_edu1 <- mean(SPLMGM)
+
+#EGP
+SPLMGM <- centrality(egpclass0_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_egp0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(egpclass1_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_egp1 <- mean(SPLMGM)
+
+#subclass
+SPLMGM <- centrality(subclass0_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_subcl0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(subclass1_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_subcl1 <- mean(SPLMGM)
+
+#soc mob
+SPLMGM <- centrality(socmob0_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_socmob0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(socmob1_cent)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_socmob1 <- mean(SPLMGM)
+
+##Graph
+ASPL_table = data.frame(Variable = c("Income", "Income", 
+                        "Education level", "Education level", 
+                        "Social class","Social class", 
+                        "Subjective social class", "Subjective social class",
+                        "Subjective social mobility","Subjective social mobility"),
+           Level = c("Low", "High",
+                     "Low", "High",
+                     "Low", "High",
+                     "Low", "High",
+                     "Low", "High"),
+           ASPL = c(ASPL_income0, ASPL_income1,
+                    ASPL_edu0, ASPL_edu1,
+                    ASPL_egp0, ASPL_egp1,
+                    ASPL_subcl0, ASPL_subcl1,
+                    ASPL_socmob0, ASPL_socmob1))
+
+
+
+# Helper function for string wrapping. 
+# Default 20 character target width.
+swr = function(string, nwrap=15) {
+  paste(strwrap(string, width=nwrap), collapse="\n")
+}
+swr = Vectorize(swr)
+
+# Create line breaks in Year
+ASPL_table$Variable_r = swr(ASPL_table$Variable)
+
+           
+graph_connectivity = ggplot(ASPL_table, aes(y=ASPL, x=Level, fill=Variable_r)) + 
+    geom_bar(position="dodge", stat="identity") +
+    geom_text(aes(label=round(ASPL,2)), vjust=-0.5, size=3) +
+    facet_grid(~Variable_r) +
+    labs(y = "ASPL", x="", caption = "Differences between high and low groups are not statistically significant for any variable") +
+    scale_y_continuous(limits = c(0,25)) +
+    theme_nice() +
+    theme(legend.position = "none", plot.caption = element_text(hjust = 0.5)) + 
+    scale_fill_brewer(palette = "Pastel1")
+
+ggsave(here("Output", "H2", "graph_connectivity.jpg"), graph_connectivity, height = 6, width = 10)
+
+graph_connectivity
+```
+
+
+### Graph centrality
+
+```{r}
+#income
+c_income0 = cent_income0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_income$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Income",
+         group = "Low")
+
+c_income1 = cent_income1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_income$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Income",
+         group = "High")
+
+#edu
+c_edu0 = cent_edu0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_edu$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Education level",
+         group = "Low")
+
+c_edu1 = cent_edu1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_edu$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Education level",
+         group = "High")
+
+#egpclass
+c_egpclass0 = cent_egpclass0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_egpclass$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Social class",
+         group = "Low")
+
+c_egpclass1 = cent_egpclass1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_egpclass$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Social class",
+         group = "High")
+  
+#subclass
+c_subclass0 = cent_subclass0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_subclass$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Subjective social class",
+         group = "Low")
+
+c_subclass1 = cent_subclass1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_subclass$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Subjective social class",
+         group = "High")
+
+#socmob
+c_socmob0 = cent_socmob0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_socmob$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Subjective social mobility",
+         group = "Low")
+
+c_socmob1 = cent_socmob1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_socmob$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Subjective social mobility",
+         group = "High")
+
+#graph
+c_all = rbind(c_income0, c_income1,
+              c_edu0, c_edu1,
+              c_egpclass0, c_egpclass1,
+              c_subclass0, c_subclass1,
+              c_socmob0, c_socmob1) %>% 
+  select(measure, group, everything())
+
+educ_na = c("Education level", "Low", "ib_work", "Inequality belief - work", 0, 0)
+
+c_all_na = rbind(educ_na, c_all) %>% 
+  mutate(value = as.numeric(value))
+
+c_all_na$measure_r = swr(c_all_na$measure)
+v_factor_levels <- c("Low", "High")
+
+graph_centrality = ggplot(c_all_na, aes(y=value, x=reorder(name, desc(name)), fill=factor(group, levels = v_factor_levels))) + 
+    geom_bar(position="dodge", stat="identity") +
+    facet_grid(~measure_r) +
+  coord_flip() +
+    labs(y = "Strength", x="", 
+         
+         caption = "Only differences between high and low groups that are statistically significant",
+         ) +
+    scale_y_continuous(limits = c(0,1.5)) +
+    theme_nice() +
+    theme(legend.position = "bottom", plot.caption = element_text(hjust = 0.5)) + 
+    scale_fill_brewer(palette = "Pastel1") +
+  guides(fill=guide_legend(title="Group"))
+  
+ggsave(here("Output", "H2", "graph_centrality.jpg"), graph_centrality, height = 6, width = 10)
+
+graph_centrality
+```
+
+
+# Output
+
+```{r}
+dir.create('../Input/NCT/results')
+
+#NCTs
+saveRDS(NCT_income, here("Input", "NCT", "results", "NCT_income.rds"))
+saveRDS(NCT_edu, here("Input", "NCT", "results", "NCT_edu.rds"))
+saveRDS(NCT_egpclass, here("Input", "NCT", "results", "NCT_egpclass.rds"))
+saveRDS(NCT_subclass, here("Input", "NCT", "results", "NCT_subclass.rds"))
+saveRDS(NCT_socmob, here("Input", "NCT", "results", "NCT_socmob.rds"))
+
+#comm_detection
+saveRDS(Comm_income0, here("Input", "NCT", "results", "detected_comm", "Comm_income0.rds"))
+saveRDS(Comm_income1, here("Input", "NCT", "results", "detected_comm", "Comm_income1.rds"))
+
+saveRDS(Comm_edu0, here("Input", "NCT", "results", "detected_comm", "Comm_edu0.rds"))
+saveRDS(Comm_edu1, here("Input", "NCT", "results", "detected_comm", "Comm_edu1.rds"))
+
+saveRDS(Comm_egpclass0, here("Input", "NCT", "results", "detected_comm", "Comm_egpclass0.rds"))
+saveRDS(Comm_egpclass1, here("Input", "NCT", "results", "detected_comm", "Comm_egpclass1.rds"))
+
+saveRDS(Comm_subclass0, here("Input", "NCT", "results", "detected_comm", "Comm_subclass0.rds"))
+saveRDS(Comm_subclass1, here("Input", "NCT", "results", "detected_comm", "Comm_subclass1.rds"))
+
+saveRDS(Comm_socmob0, here("Input", "NCT", "results", "detected_comm", "Comm_socmob0.rds"))
+saveRDS(Comm_socmob1, here("Input", "NCT", "results", "detected_comm", "Comm_socmob1.rds"))
+```
+
+
