@@ -15,7 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(pacman)
 p_load(tidyverse, janitor, here, haven, labelled, sjmisc, skimr, ggplot2, jtools,
        stargazer, qgraph, Matrix, igraph, psychTools, NetworkComparisonTest, bootnet,
-       rio, compute.es, foreign, matrixcalc, RColorBrewer, EGAnet, kableExtra)
+       rio, compute.es, foreign, matrixcalc, RColorBrewer, EGAnet, kableExtra, qpdf,
+       formattable)
 ```
 
 ```{r}
@@ -39,14 +40,14 @@ longnames <- c(
   "Inequality belief - race",
   "Inequality belief - religion",
   "Inequality belief - sex",
-  "Perception of large income inequality",
-  "Perception of tax regressivity",
-  "Belief in public redistribution",
-  "Belief in market redistribution",
-  "Belief in progressive taxation",
-  "Judgment about existing unfair distribution",
-  "Judgment about political disinterest in redistribution",
-  "Judgment about the failure of public redistribution")
+  "Perception - large income inequality",
+  "Perception - tax regressivity",
+  "Belief - public redistribution",
+  "Belief - market redistribution",
+  "Belief - progressive taxation",
+  "Judgment - unfair distribution",
+  "Judgment - political disinterest in redistribution",
+  "Judgment - failure of public redistribution")
 
 
 stargazer(as.data.frame(chi_net), type = "text", nobs = TRUE)
@@ -65,11 +66,6 @@ stargazer(as.data.frame(chi_net), type = "text", nobs = TRUE)
 cor_chi = cor(chi_net)
 ggm_chi <- EBICglasso(S = cor_chi, n = nrow(chi_net))
 
-net_pcor <- estimateNetwork(chi_net, default = "EBICglasso")
-plot(net_pcor)
-
-
-
 # Communities
 ega_chi = EGA(chi_net)
 ega_chi$wc
@@ -80,9 +76,9 @@ totalgroup_comm <- list(
  " "=c(11,13,14,15,17),
  " "=c(12,16,18))
        
-totalgroup_cols <- c("#DECBE4","#FED9A6","#CCEBC5","#FDDAEC","#FFFFCC")
+totalgroup_cols <- c("#B3CDE3","#FED9A6","#FDDAEC","#CCEBC5","#FFFFCC")
 ```
-### EGA
+### Main plot
 
 ```{r}
 # Plot network
@@ -93,10 +89,10 @@ ggm_chi_net = qgraph(ggm_chi,
   cut = 0.10, 
   #minimum = 0.05, 
   maximum = 1, 
-  GLratio=3,
+  GLratio=2, mar = c(2.2,2.2,2.2,2.2),
   details = FALSE, vsize=7.0, label.cex=0.8, label.scale=FALSE,
   groups=totalgroup_comm, color=totalgroup_cols,
-  legend = TRUE, legend.cex = 0.3, borders = FALSE)
+  legend = TRUE, legend.cex = 0.41, borders = FALSE)
 dev.off()
 
 # Plot centrality
@@ -111,6 +107,11 @@ centrality_graph = centralityPlot(ggm_chi_net, labels = longnames,
 ggsave(here("Output", "centrality.jpg"), centrality_graph,
         height = 4)
 
+#Shortest Path Lenght
+SPLMGM <- centrality(ggm_chi, weighted = TRUE)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+#Average shortest path length
+ASPL_MGM <- mean(SPLMGM)
 ```
 
 ### Sociodemographic networks - EGA
@@ -131,33 +132,31 @@ EGA_class_1 = EGA(class_1)
 ##### Income
 
 ```{r}
-
+#EGA groups
 group_income_0 <- list(
- " "=c(1:5),
- " "=c(8,9,10),
- " "=c(11,13,14),
- " "=c(6,7),
- " "=c(12,15))
+ " "=c(2:5),
+ " "=c(8:10),
+ " "=c(11,13,14,15,17),
+ " "=c(1,6,7),
+ " "=c(12,16,18))
 
 group_income_1 <- list(
  " "=c(1:5),
- " "=c(6,7, 8,9,10),
- " "=c(11,13,14,12,15))
+ " "=c(6:10),
+ " "=c(11:18))
 
+#Network estimation
 cor_chi_income_0 = cor(income_0)
 cor_chi_income_1 = cor(income_1)
 
 ggm_chi_income_0 <- EBICglasso(S = cor_chi_income_0, n = nrow(income_0))
 ggm_chi_income_1 <- EBICglasso(S = cor_chi_income_1, n = nrow(income_1))
 
-names(income_0)
+#Multiplot
+pdf(here("Output", "income.pdf"), 
+    height = 5, width = 12)
 
-
-pdf(here("Output", "income.pdf"), paper = "USr", 
-    height = 9, width = 12)
-
-L<-averageLayout(ggm_chi_income_0,ggm_chi_income_1)
-
+L<-averageLayout(ggm_chi_income_0,ggm_chi_income_1, layout = "spring")
 lmat <- matrix(1:2, 1)
 lo <- layout(lmat, width = c(1, 1))
 
@@ -165,61 +164,100 @@ graph_income_0<-qgraph(ggm_chi_income_0,
   layout = L, theme = "Borkulo", 
   labels = shortnames,
   cut = 0.10, 
-  label.scale=FALSE,
+  label.scale=FALSE, label.cex = 0.7,
   groups=group_income_0, color=totalgroup_cols,
-  legend = FALSE, borders = FALSE, details = FALSE, vsize=6.0,
+  legend = FALSE, borders = FALSE, details = FALSE, vsize=7.0,
   title = "Low income")
+
 graph_income_1<-qgraph(ggm_chi_income_1, 
   layout = L, theme = "Borkulo", 
   labels = shortnames,
   cut = 0.10, 
-  label.scale=FALSE,
+  label.scale=FALSE, label.cex = 0.7,
   groups=group_income_1, color=totalgroup_cols,
-  legend = FALSE, borders = FALSE, details = FALSE, vsize=6.0,
+  legend = FALSE, borders = FALSE, details = FALSE, vsize=7.0,
   title = "High income")
 
 dev.off()
-
-
-EGA_income_0$wc
-EGA_income_1$wc
-comp_egas_income
-
-EGA_education_0$wc
-EGA_education_1$wc
-EGA_class_0$wc
-EGA_class_1$wc
 ```
 
-#### CompareEGA
+##### Education
 
 ```{r}
+#EGA groups
+group_education_0 <- list(
+ " "=c(1:5),
+ " "=c(8:10),
+ " "=c(11,13,14,15,17),
+ " "=c(6,7),
+ " "=c(12,16,18))
 
-EGA_income_0 = EGA(income_0)
-EGA_income_1 = EGA(income_1)
-EGA_education_0 = EGA(education_0)
-EGA_education_1 = EGA(education_1)
-EGA_class_0 = EGA(class_0)
-EGA_class_1 = EGA(class_1)
+group_education_1 <- list(
+ " "=c(1:5),
+ " "=c(6:10),
+ " "=c(11:18))
 
-#EGA list
-data_egas_income <- lapply(ls(pattern="^EGA_income"), function(x) get(x))
+#Network estimation
+cor_chi_education_0 = cor(education_0)
+cor_chi_education_1 = cor(education_1)
 
-#Compare EGAs
-comp_egas_income = compare.EGA.plots(
-  input.list = data_egas_income,
-  base.plot = 1,
-  labels = c("Low", "High"),
-  rows = 1, columns = 2,
-  plot.args = list(
-    plot.type="qgraph",
-    #vsize = 2, label.size = 2, edge.size = 0.2,
-    legend.position = "none", legend.size = NA,
-    borders = FALSE))
+ggm_chi_education_0 <- EBICglasso(S = cor_chi_education_0, n = nrow(education_0))
+ggm_chi_education_1 <- EBICglasso(S = cor_chi_education_1, n = nrow(education_1))
 
+#Multiplot
+pdf(here("Output", "education.pdf"), 
+    height = 5, width = 12)
 
-pdf(file = here("Output", "network_income.pdf"), paper = "USr", height = 9, width = 12)
-comp_egas_income_plot1 = qgraph(comp_egas_income$individual.plots$Low, 
+L<-averageLayout(ggm_chi_education_0,ggm_chi_education_1, layout = "spring")
+lmat <- matrix(1:2, 1)
+lo <- layout(lmat, width = c(1, 1))
+
+graph_education_0<-qgraph(ggm_chi_education_0, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,
+  cut = 0.10, 
+  label.scale=FALSE, label.cex = 0.7,
+  groups=group_education_0, color=totalgroup_cols,
+  legend = FALSE, borders = FALSE, details = FALSE, vsize=7.0,
+  title = "Low education")
+
+graph_education_1<-qgraph(ggm_chi_education_1, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,
+  cut = 0.10, 
+  label.scale=FALSE, label.cex = 0.7,
+  groups=group_education_1, color=totalgroup_cols,
+  legend = FALSE, borders = FALSE, details = FALSE, vsize=7.0,
+  title = "High education")
+
+dev.off()
+```
+
+##### Class
+
+```{r}
+#EGA groups
+group_class_0 <- list(
+ " "=c(1:5),
+ " "=c(6:10),
+ " "=c(11,13,14,15,17),
+ " "=c(12,16,18))
+
+group_class_1 <- list(
+ " "=c(1,2,5,6,7),
+ " "=c(8:10),
+ " "=c(11:18),
+ " "=c(3:4))
+
+#Network estimation
+cor_chi_class_0 = cor(class_0)
+cor_chi_class_1 = cor(class_1)
+
+ggm_chi_class_0 <- EBICglasso(S = cor_chi_class_0, n = nrow(class_0))
+ggm_chi_class_1 <- EBICglasso(S = cor_chi_class_1, n = nrow(class_1))
+
+pdf(file = here("Output", "network_class.pdf"), paper = "USr", height = 9, width = 12)
+ggm_chi_net = qgraph(ggm_chi_class_1, 
   layout = "spring", theme = "Borkulo", 
   labels = shortnames,nodeNames = longnames,
   cut = 0.10, 
@@ -227,179 +265,277 @@ comp_egas_income_plot1 = qgraph(comp_egas_income$individual.plots$Low,
   maximum = 1, 
   GLratio=3,
   details = FALSE, vsize=7.0, label.cex=0.8, label.scale=FALSE,
-  #groups=totalgroup_comm, color=totalgroup_cols,
-  legend = FALSE, legend.cex = 0.3, borders = FALSE)
-dev.off()
-
-```
-
-
-### Communities
-
-```{r}
-
-```
-## Plot
-
-```{r}
-#enables theme colorblind because we don't need to specify edge.color
-inputGraphMGM <- mgmFit$pairwise$wadj
-signsGraphMGM <- mgmFit$pairwise$signs
-signsGraphMGM[which(is.na(signsGraphMGM))] <- 1
-inputGraphMGM <- inputGraphMGM*signsGraphMGM
-
-# refined, no minimum 
-pdf(file = '../Output/H1/MGM_nomin.pdf',paper = "USr", height = 9, width = 12)
-GraphMGM<-qgraph(inputGraphMGM, 
-  layout = "spring", theme = "Borkulo", 
-  labels = shortnames, nodeNames = longnames,
-  cut = 0.10, maximum = 1, 
-  details = FALSE, vsize=6.0,
-  groups=Totalgroup_comm, color= Totalgroup_cols,
+  groups=totalgroup_comm, color=totalgroup_cols,
   legend = TRUE, legend.cex = 0.3, borders = FALSE)
 dev.off()
 
-# refined,  minimum = 0.5
-pdf(file = '../Output/H1/MGM_min_05.pdf',paper = "USr", height = 9, width = 12)
-GraphMGM<-qgraph(inputGraphMGM, 
-  layout = "spring", theme = "Borkulo", 
-  labels = shortnames,nodeNames = longnames,
-  cut = 0.10, minimum = 0.05, maximum = 1, 
-  details = FALSE, vsize=6.0, 
-  groups=Totalgroup_comm, color= Totalgroup_cols,
-  legend = TRUE, legend.cex = 0.3, borders = FALSE)
-dev.off()
+#Multiplot
+pdf(here("Output", "class.pdf"), 
+    height = 5, width = 12)
 
-# refined,  minimum = 0.10
-pdf(file = '../Output/H1/MGM_min_10.pdf',paper = "USr", height = 9, width = 12)
-GraphMGM<-qgraph(inputGraphMGM, 
-  layout = "spring", theme = "Borkulo", 
-  labels = shortnames,nodeNames = longnames,
-  cut = 0.10, minimum = 0.10, maximum = 1, 
-  details = FALSE, vsize=6.0, legend = TRUE,
-  groups=Totalgroup_comm, color= Totalgroup_cols,
-  legend.cex = 0.3, borders = FALSE)
+L<-averageLayout(ggm_chi_class_0,ggm_chi_class_1, layout = "spring")
+lmat <- matrix(1:2, 1)
+lo <- layout(lmat, width = c(1, 1))
+
+graph_class_0<-qgraph(ggm_chi_class_0, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,
+  cut = 0.10, 
+  label.scale=FALSE, label.cex = 0.7,
+  groups=group_class_0, color=totalgroup_cols,
+  legend = FALSE, borders = FALSE, details = FALSE, vsize=7.0,
+  title = "Low class")
+
+graph_class_1<-qgraph(ggm_chi_class_1, 
+  layout = L, theme = "Borkulo", 
+  labels = shortnames,
+  cut = 0.10, 
+  label.scale=FALSE, label.cex = 0.7,
+  groups=group_class_1, color=totalgroup_cols,
+  legend = FALSE, borders = FALSE, details = FALSE, vsize=7.0,
+  title = "High class")
+
 dev.off()
 ```
 
-### Centrality estimates
+##### Multiplot
 
 ```{r}
-#graph with complete labels for centrality plot
-GraphMGMCENT<-qgraph(inputGraphMGM, 
-  layout = "spring", theme = "colorblind",
-  labels = longnames, minimum = 0,
-  cut = 0.10, maximum = 1, details = TRUE,
-  legend = FALSE)
+list.files = c(here("Output", "income.pdf"), here("Output", "education.pdf"), 
+here("Output", "class.pdf"))
 
-#centrality Total
-centMGM <- centralityTable(GraphMGMCENT,standardized = FALSE)
-
-#CentralityPlot Total
-centrality_table = centralityPlot(GraphMGMCENT, include = c("Strength"), scale = "raw",
-               orderBy = "Strength") + theme_nice() + theme(axis.text.y=element_text(hjust=1))
-
-ggsave(here("Output", "H1", "Centrality_Table.jpg"), centrality_table)
+qpdf::pdf_combine(input = list.files,
+                  output = here("Output", "multiplot.pdf"))
 ```
 
-### ASPL
+## NCT
 
 ```{r}
-#Shortest Path Lenght
-SPLMGM <- centrality(GraphMGM, weighted = TRUE)$ShortestPathLengths
+#Income
+NCT_income <- NCT(income_1,income_0, it = 1000,
+                test.edges = TRUE, edges = "all", 
+                test.centrality = TRUE)
+
+inputNCT_income <- ggm_chi_income_1 - ggm_chi_income_0
+inputNCT_income_abs = abs(NCT_income$einv.real) 
+sum_income_c = colSums(inputNCT_income_abs)
+sum_income = sum(sum_income_c)
+
+#education
+NCT_education <- NCT(education_1,education_0, it = 1000,
+                test.edges = TRUE, edges = "all", 
+                test.centrality = TRUE)
+
+inputNCT_education <- ggm_chi_education_1 - ggm_chi_education_0
+inputNCT_education_abs = abs(NCT_education$einv.real) 
+sum_education_c = colSums(inputNCT_education_abs)
+sum_education = sum(sum_education_c)
+
+#class
+NCT_class <- NCT(class_1,class_0, it = 1000,
+                test.edges = TRUE, edges = "all", 
+                test.centrality = TRUE)
+
+inputNCT_class <- ggm_chi_class_1 - ggm_chi_class_0
+inputNCT_class_abs = abs(NCT_class$einv.real) 
+sum_class_c = colSums(inputNCT_class_abs)
+sum_class = sum(sum_class_c)
+```
+
+### Graph edge weights
+
+```{r}
+#Graph
+graph_edgew = tibble(variable = c("Income", "Education level", "Social class"),
+                   dif = c(sum_income, sum_education, sum_class)) %>% 
+  arrange(desc(dif)) %>% 
+  ggplot(aes(x=reorder(variable, -dif), y = dif, fill=variable)) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label= formattable::digits(dif, digits = 2)), parse = FALSE, vjust=-0.5, size=3) +
+  labs(y = "Differences in edge weights", x="Stratification measures") +
+  scale_y_continuous(limits = c(0,7)) +
+  theme_nice() +
+  theme(legend.position = "none") + 
+  scale_fill_brewer(palette = "Pastel1")
+
+ggsave(here("Output", "graph_edgew.jpg"), graph_edgew, height = 6, width = 10)
+
+graph_edgew
+```
+
+### Graph centrality
+
+```{r}
+#Preparation
+cent_income_0 <- centralityTable(ggm_chi_income_0,standardized = FALSE)
+cent_income_1 <- centralityTable(ggm_chi_income_1,standardized = FALSE)
+
+cent_education_0 <- centralityTable(ggm_chi_education_0,standardized = FALSE)
+cent_education_1 <- centralityTable(ggm_chi_education_1,standardized = FALSE)
+
+cent_class_0 <- centralityTable(ggm_chi_class_0,standardized = FALSE)
+cent_class_1 <- centralityTable(ggm_chi_class_1,standardized = FALSE)
+
+## Input graph
+
+#income
+c_income_0 = cent_income_0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_income$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Income",
+         group = "Low")
+
+c_income_1 = cent_income_1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_income$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Income",
+         group = "High")
+
+#education
+c_education_0 = cent_education_0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_education$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Education level",
+         group = "Low")
+
+c_education_1 = cent_education_1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_education$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Education level",
+         group = "High")
+
+#class
+c_class_0 = cent_class_0 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_class$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Social class",
+         group = "Low")
+
+c_class_1 = cent_class_1 %>%
+  filter(measure=="Strength") %>% 
+  select(node, value) %>% 
+  cbind(NCT_class$diffcen.pval) %>% 
+  rename(pvalue = strength) %>%   
+  filter(pvalue<=0.05) %>% 
+  rownames_to_column("name") %>% 
+  mutate(measure = "Social class",
+         group = "High")
+
+#graph
+c_all = rbind(c_income_0, c_income_1,
+              c_education_0, c_education_1,
+              c_class_0, c_class_1) %>% 
+  select(measure, group, everything())
+
+v_factor_levels <- c("Low", "High")
+
+graph_centrality = ggplot(c_all, aes(y=value, x=reorder(name, desc(name)), fill=factor(group, levels = v_factor_levels))) + 
+    geom_bar(position="dodge", stat="identity") +
+    facet_grid(~measure) +
+  coord_flip() +
+    labs(y = "Strength", x="", 
+         
+         caption = "Only differences between high and low groups that are statistically significant",
+         ) +
+    scale_y_continuous(limits = c(0,1.5)) +
+    theme_nice() +
+    theme(legend.position = "bottom", plot.caption = element_text(hjust = 0.5)) + 
+    scale_fill_brewer(palette = "Pastel1") +
+  guides(fill=guide_legend(title="Group"))
+  
+ggsave(here("Output", "graph_centrality.jpg"), graph_centrality, height = 6, width = 10)
+
+graph_centrality
+```
+
+### Graph connectivity
+
+```{r}
+#Income 
+SPLMGM <- centrality(ggm_chi_income_0)$ShortestPathLengths
 SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
-#Average shortest path length
-ASPL_MGM <- mean(SPLMGM)
+ASPL_income0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(ggm_chi_income_1)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_income1 <- mean(SPLMGM)
+
+#edu
+SPLMGM <- centrality(ggm_chi_education_0)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_edu0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(ggm_chi_education_1)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_edu1 <- mean(SPLMGM)
+
+#Class
+SPLMGM <- centrality(ggm_chi_class_0)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_egp0 <- mean(SPLMGM)
+
+SPLMGM <- centrality(ggm_chi_class_1)$ShortestPathLengths
+SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
+ASPL_egp1 <- mean(SPLMGM)
+
+##Graph
+ASPL_table = data.frame(Variable = c("Income", "Income", 
+                        "Education level", "Education level", 
+                        "Social class","Social class"),
+           Level = c("Low", "High",
+                     "Low", "High",
+                     "Low", "High"),
+           ASPL = c(ASPL_income0, ASPL_income1,
+                    ASPL_edu0, ASPL_edu1,
+                    ASPL_egp0, ASPL_egp1))
+
+
+
+# Helper function for string wrapping. 
+# Default 20 character target width.
+swr = function(string, nwrap=15) {
+  paste(strwrap(string, width=nwrap), collapse="\n")
+}
+swr = Vectorize(swr)
+
+# Create line breaks in Year
+ASPL_table$Variable_r = swr(ASPL_table$Variable)
+
+           
+graph_connectivity = ggplot(ASPL_table, aes(y=ASPL, x=Level, fill=Variable_r)) + 
+    geom_bar(position="dodge", stat="identity") +
+    geom_text(aes(label=formattable::digits(ASPL, digits = 2)), vjust=-0.5, size=3) +
+    facet_grid(~Variable_r) +
+    labs(y = "ASPL", x="", caption = "Differences between high and low groups are not statistically significant for any variable") +
+    #scale_y_continuous(limits = c(0,25)) +
+    theme_nice() +
+    theme(legend.position = "none", plot.caption = element_text(hjust = 0.5)) + 
+    scale_fill_brewer(palette = "Pastel1")
+
+ggsave(here("Output", "graph_connectivity.jpg"), graph_connectivity, height = 6, width = 10)
+
+graph_connectivity
 ```
-ASPL (Weighted) m= 19.90601
-
-## Bootstrap
-
-#### Edge accuracy
-
-```{r}
-#edge weight accuracy: non parametric bootstrap with 8 cores
-#edgeacc =  bootnet(CHI, nBoots = 1000, nCores = 8, 'mgm')
-
-#load the object instead:
-edgeacc = readRDS(here("Input", "edgeacc.rds"))
-
-#plot 1
-pdf('../Output/H1/robustness/edge_accuracy.pdf', height = 70, width = 50)
-plot(edgeacc, labels = longnames, order = "sample")
-dev.off()
-
-#Plot 2
-pdf('../Output/H1/robustness/edge_accuracy_CI.pdf', height = 70, width = 50)
-plot(edgeacc, plot = "interval", split0 = TRUE, order="sample", labels=longnames)
-dev.off()
-
-#summary
-saummary_edgeacc = summary(edgeacc, statistics = c("edge", "strength"), 
-                            perNode = FALSE, rank = FALSE) 
-```
-
-#### Centrality stability
-
-```{r}
-# case dropping bootstrap
-#centstab = bootnet(CHI, nBoots = 1000, 'mgm', type = "case", nCores = 8)
-
-#load the object instead:
-centstab = readRDS(here("Input", "centstab.rds"))
-
-#plot 1
-pdf('../Output/H1/robustness/Centrality_stability.pdf', height = 70, width = 50)
-plot(centstab, "Strength", perNode = TRUE, labels = longnames,
-     subsetRange = c(100,50))
-dev.off()
-
-#Plot 2
-pdf('../Output/H1/robustness/Centrality_stability_CI.pdf', height = 70, width = 50)
-plot(centstab, "Strength", CIstyle =  "quantiles")
-dev.off()
-
-#CS-coefficient (result should be above 0.25, better if above 0.5)
-corstab = corStability(centstab)
-```
-
-#### Testing Edge and centrality differences
-
-```{r}
-# Test: difference of weight ties 2-3 vs 4-5
-differenceTest(edgeacc, 2--3, 3--4, "strength")
-
-# Plot test results for every edge weight in the network
-pdf('../Output/H1/robustness/test_edges.pdf', height = 70, width = 50)
-plot(edgeacc, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample", 
-     labels = T)
-dev.off()
-```
-
-```{r}
-# Test: difference of strength of node 2 vs 3 (if the bootstrapped CI include 0, they do not differ)
-differenceTest(edgeacc, 2, 3, "strength")
-
-# Plot test results for every edge weight in the network
-pdf('../Output/H1/robustness/test_strenghts.pdf', height = 70, width = 50)
-plot(edgeacc, "strength", order = "mean", labels = T)
-dev.off()
-```
-
-
-## H1
-
-```{r}
-#small world network
-CHI_small_core = smallworldness(mgmFit$pairwise$wadj, B = 1000)
-CHI_small_core
-
-```
-comment: 
-- smallworldness > 1 -> small world network
-- rnd values > 1 -> small world network
-- averagelength_target (Unweighted)
-
 
 # Output
 

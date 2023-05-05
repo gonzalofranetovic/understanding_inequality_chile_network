@@ -52,22 +52,22 @@ issp_2019 = issp_2019_original %>%
 
 #Rename
 issp_2019 = issp_2019 %>% 
-  rename(ib_weafam = v1,
-          ib_edupar = v2,
+  rename(ib_fam = v1,
+          ib_edup = v2,
           ib_edu = v3,
           ib_work = v4,
-          ib_people = v5,
-          ib_pol = v6,
-          ib_bribes = v7,
+          ib_ppl = v5,
+          ib_con = v6,
+          ib_bri = v7,
           ib_race = v8,
-          ib_relig = v9,
+          ib_rel = v9,
           ib_sex = v10,
           p_ineq = v21,
           j_ineq = v50,
-         b_red_pub = v22,
-          b_red_mar = v24,
-          j_red_disi = v26,
-          j_red_fail = v27,
+         b_red_p = v22,
+          b_red_m = v24,
+          j_red_d = v26,
+          j_red_f = v27,
           b_tax = v28,
           p_tax = v29)
 
@@ -85,10 +85,10 @@ issp_2019 = issp_2019 %>%
 ```{r}
 #Missing values and inverting polarity
 issp_2019 = issp_2019 %>% 
-  mutate(across(ib_weafam:j_ineq, ~replace(., .<0 , NA)),
+  mutate(across(ib_fam:j_ineq, ~replace(., .<0 , NA)),
          across(c(cl_inc, educyrs, isco08, emprel, nsup, v61, v41, v42), ~replace(., .<0 , NA)),
-         across(ib_weafam:ib_sex,  ~ 6 - .),
-         across(c(p_ineq, b_red_pub, b_red_mar, j_red_disi, b_tax),  ~ 6 - .))
+         across(ib_fam:ib_sex,  ~ 6 - .),
+         across(c(p_ineq, b_red_p, b_red_m, j_red_d, b_tax),  ~ 6 - .))
 
 
 #Reorder
@@ -97,8 +97,8 @@ issp_2019 = issp_2019 %>%
          starts_with("p_"),
          starts_with("b_"),
          j_ineq,
-         j_red_disi,
-         j_red_fail,
+         j_red_d,
+         j_red_f,
          everything())
 ```
 
@@ -113,8 +113,8 @@ chi_net = issp_2019 %>%
          starts_with("p_"),
          starts_with("b_"),
          j_ineq,
-         j_red_disi,
-         j_red_fail) %>% 
+         j_red_d,
+         j_red_f) %>% 
   na.omit()
 
 names(chi_net)
@@ -129,7 +129,7 @@ names(chi_net)
 
 #Select and listwise
 chi_income = issp_2019 %>% 
-  select(ib_weafam:j_ineq,
+  select(ib_fam:j_red_f,
          cl_inc) %>% 
   rename(income_h = cl_inc) %>% 
   na.omit()
@@ -153,7 +153,7 @@ income_1 = chi_income[[2]]
 
 #Select and listwise
 chi_education = issp_2019 %>% 
-  select(ib_weafam:j_ineq,
+  select(ib_fam:j_red_f,
          educyrs) %>% 
   na.omit()
 
@@ -178,7 +178,7 @@ education_1 = chi_education[[2]]
 
 #Select and listwise
 chi_class = issp_2019 %>% 
-  select(ib_weafam:j_ineq,
+  select(ib_fam:j_red_f,
          isco08, emprel, nsup)
 
 #ISCO08 - Code (isco08_code)
@@ -210,7 +210,7 @@ chi_class = chi_class %>%
 
 #Select and listwise
 chi_class = chi_class %>% 
-  select(ib_weafam:j_ineq,
+  select(ib_fam:j_red_f,
          social_class_3) %>% 
   na.omit()
 
