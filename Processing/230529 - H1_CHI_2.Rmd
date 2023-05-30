@@ -32,33 +32,30 @@ names(chi_net)
 
 shortnames <- names(chi_net)
 
-longnames <- c(
-  "Perception on magnitudes - income inequality",
-  "Perception on magnitudes - tax regressivity",
-  "Belief on magnitudes - progressive taxation",
-  "Judgment on magnitudes - unfair distribution",
-  "Judgment on magnitudes - political disinterest in redistribution",
-  "Judgment on magnitudes - failure of public redistribution",
-  "Perception on principles - wealthy family",
-  "Perception on principles - parental education",
-  "Perception on principles - education",
-  "Perception on principles - work",
-  "Perception on principles - people",
-  "Perception on principles - politics",
-  "Perception on principles - bribes",
-  "Perception on principles - race",
-  "Perception on principles - religion",
-  "Perception on principles - sex",
-  "Belief on principles - public redistribution",
-  "Belief on principles - market redistribution",
-  "Belief on principles - responsability",
-  "Belief on principles - education",
-  "Belief on principles - need",
-  "Belief on principles - merit")
-
+longnames <- c("Perception of large income inequality (ineq_p)",
+            "Perception of tax regressivity (reg_p)",
+            "Belief in progressive taxation (prog_b)",
+            "Judgment of unfair distribution (ineq_j)",
+            "Judgment of political disinterest in redistribution (redis_d)",
+            "Judgment of failure of public redistribution (redis_f)",
+            "Importance of wealthy family (family)",
+            "Importance of parental education (edupar)",
+            "Importance of education (edu)",
+            "Importance of hard work (work)",
+            "Importance of knowing right people (people)",
+            "Importance of political connections (connec)",
+            "Importance of giving bribes (bribes)",
+            "Importance of race (race)",
+            "Importance of religion (relig)",
+            "Importance of sex (sex)",
+            "Belief in public redistribution (redis_p)",
+            "Belief in market redistribution (redis_m)",
+            "Pay criteria: Responsibility (resp)",
+            "Pay criteria: Training (train)",
+            "Pay criteria: Need (need)",
+            "Pay criteria: Merit (merit)")
 
 stargazer(as.data.frame(chi_net), type = "text", nobs = TRUE)
-
   
 ```
 
