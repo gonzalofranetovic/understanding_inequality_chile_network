@@ -14,11 +14,10 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 #Libraries
 library(pacman)
 p_load(tidyverse, janitor, here, haven, labelled, sjmisc, skimr,
-       stargazer, purr, conflicted)
+       stargazer, purr, conflicted, devtools)
 
-#devtools::install_github("DiogoFerrari/occupar")
+devtools::install_github("DiogoFerrari/occupar")
 library(occupar)
-
 ```
 
 ```{r}
@@ -48,35 +47,57 @@ issp_2019_original = read_dta(here("Input", "ZA7600_v3-0-0.dta"))  %>%
 #Select
 issp_2019 = issp_2019_original %>% 
   filter(country==152) %>% 
-  select(studyno:educyrs, degree:union, isco08, cl_inc, caseid:partials)
+  select(v1:v50, educyrs, cl_inc, isco08, emprel, nsup)
 
 #Rename
 issp_2019 = issp_2019 %>% 
-  rename(ib_fam = v1,
-          ib_edup = v2,
-          ib_edu = v3,
-          ib_work = v4,
-          ib_ppl = v5,
-          ib_con = v6,
-          ib_bri = v7,
-          ib_race = v8,
-          ib_rel = v9,
-          ib_sex = v10,
-          p_ineq = v21,
-          j_ineq = v50,
-         b_red_p = v22,
-          b_red_m = v24,
-          j_red_d = v26,
-          j_red_f = v27,
-          b_tax = v28,
-          p_tax = v29)
+  rename(family = v1,
+         edupar = v2,
+         edu = v3,
+         work = v4,
+         people = v5,
+         connec = v6,
+         bribes = v7,
+         race = v8,
+         relig = v9,
+         sex = v10,
+         ineq_p = v21,
+         ineq_j = v50,
+         redis_p = v22,
+         redis_m = v24,
+         redis_d = v26,
+         redis_f = v27,
+         prog_b = v28,
+         reg_p = v29,
+         resp = v44,
+         train = v45,
+         need = v46,
+         merit = v47)
 
 #Reorder
 issp_2019 = issp_2019 %>% 
-  select(starts_with("ib_"),
-         starts_with("p_"),
-         starts_with("b_"),
-         starts_with("j_"),
+  select(ineq_p,
+         reg_p,
+         prog_b,
+         ineq_j,
+         redis_d,
+         redis_f,
+         family,
+         edupar,
+         edu,
+         work,
+         people,
+         connec,
+         bribes,
+         race,
+         relig,
+         sex,
+         redis_p,
+         redis_m,
+         resp,
+         train,
+         need,
+         merit,
          everything())
 
 ```
@@ -85,20 +106,38 @@ issp_2019 = issp_2019 %>%
 ```{r}
 #Missing values and inverting polarity
 issp_2019 = issp_2019 %>% 
-  mutate(across(ib_fam:j_ineq, ~replace(., .<0 , NA)),
-         across(c(cl_inc, educyrs, isco08, emprel, nsup, v61, v41, v42), ~replace(., .<0 , NA)),
-         across(ib_fam:ib_sex,  ~ 6 - .),
-         across(c(p_ineq, b_red_p, b_red_m, j_red_d, b_tax),  ~ 6 - .))
+  mutate(across(ineq_p:merit, ~replace(., .<0 , NA)),
+         across(c(educyrs, cl_inc, isco08, emprel, nsup), ~replace(., .<0 , NA)),
+         across(family:sex,  ~ 6 - .),
+         across(c(ineq_p, redis_p, redis_m, redis_d, prog_b),  ~ 6 - .),
+         across(resp:merit,  ~ 6 - .))
+         
 
 
 #Reorder
 issp_2019 = issp_2019 %>% 
-  select(starts_with("ib_"),
-         starts_with("p_"),
-         starts_with("b_"),
-         j_ineq,
-         j_red_d,
-         j_red_f,
+  select(ineq_p,
+         reg_p,
+         prog_b,
+         ineq_j,
+         redis_d,
+         redis_f,
+         family,
+         edupar,
+         edu,
+         work,
+         people,
+         connec,
+         bribes,
+         race,
+         relig,
+         sex,
+         redis_p,
+         redis_m,
+         resp,
+         train,
+         need,
+         merit,
          everything())
 ```
 
@@ -109,12 +148,7 @@ issp_2019 = issp_2019 %>%
 
 #Select and listwise
 chi_net = issp_2019 %>% 
-  select(starts_with("ib_"),
-         starts_with("p_"),
-         starts_with("b_"),
-         j_ineq,
-         j_red_d,
-         j_red_f) %>% 
+  select(ineq_p:merit) %>% 
   na.omit()
 
 names(chi_net)
@@ -129,7 +163,7 @@ names(chi_net)
 
 #Select and listwise
 chi_income = issp_2019 %>% 
-  select(ib_fam:j_red_f,
+  select(ineq_p:merit,
          cl_inc) %>% 
   rename(income_h = cl_inc) %>% 
   na.omit()
@@ -153,7 +187,7 @@ income_1 = chi_income[[2]]
 
 #Select and listwise
 chi_education = issp_2019 %>% 
-  select(ib_fam:j_red_f,
+  select(ineq_p:merit,
          educyrs) %>% 
   na.omit()
 
@@ -178,7 +212,7 @@ education_1 = chi_education[[2]]
 
 #Select and listwise
 chi_class = issp_2019 %>% 
-  select(ib_fam:j_red_f,
+  select(ineq_p:merit,
          isco08, emprel, nsup)
 
 #ISCO08 - Code (isco08_code)
@@ -210,7 +244,7 @@ chi_class = chi_class %>%
 
 #Select and listwise
 chi_class = chi_class %>% 
-  select(ib_fam:j_red_f,
+  select(ineq_p:merit,
          social_class_3) %>% 
   na.omit()
 
@@ -239,6 +273,7 @@ summary_chi_net  = chi_net %>%
 
 stargazer(as.data.frame(chi_net), type = "text", nobs = TRUE)
 ```
+
 # Output
 
 ```{r}

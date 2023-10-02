@@ -12,15 +12,26 @@ knitr::opts_chunk$set(echo = TRUE)
 # Input
 
 ```{r message=FALSE, warning=FALSE}
+#Libraries
 library(pacman)
-p_load(tidyverse, janitor, here, haven, labelled, sjmisc, skimr, ggplot2, jtools,
-       stargazer, qgraph, Matrix, igraph, qgraph, psychTools, NetworkComparisonTest, bootnet,
-       rio, compute.es, foreign, matrixcalc, RColorBrewer, EGAnet, kableExtra, qpdf,
-       formattable, openxlsx, GGMncv)
+p_load(tidyverse, janitor, here, haven, labelled, sjmisc, skimr, ggplot2, 
+       jtools, stargazer, qgraph, Matrix, igraph, qgraph, psychTools, 
+       NetworkToolbox, NetworkComparisonTest, bootnet, rio, compute.es, 
+       foreign, matrixcalc, RColorBrewer, EGAnet, kableExtra, qpdf,
+       formattable, openxlsx, GGMncv, conflicted)
 ```
 
 ```{r}
+#Packages conflicts
+conflict_prefer("smallworldness", "NetworkToolbox")
+conflict_prefer("desc", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+```
 
+
+```{r}
+#Load database
 load(file = here("Input", "Chile_data.RData"))
 names(chi_net)
 ```
@@ -160,7 +171,7 @@ SPLMGM <- SPLMGM[upper.tri(SPLMGM)]
 ASPL_MGM <- mean(SPLMGM)
 
 #Small world
-NetworkToolbox::smallworldness(ggm_chi, method="rand")
+smallworldness(ggm_chi, method="rand")
 
 ```
 
@@ -320,19 +331,6 @@ set.seed(1)
 ggm_chi_class_0 <- EBICglasso(S = cor_chi_class_0, n = nrow(class_0))
 ggm_chi_class_1 <- EBICglasso(S = cor_chi_class_1, n = nrow(class_1))
 
-pdf(file = here("Output", "network_class.pdf"), paper = "USr", height = 9, width = 12)
-ggm_chi_net = qgraph(ggm_chi_class_1, 
-  layout = "spring", theme = "Borkulo", 
-  labels = shortnames,nodeNames = longnames,
-  cut = 0.10, 
-  #minimum = 0.05, 
-  maximum = 1, 
-  GLratio=3,
-  details = FALSE, vsize=7.0, label.cex=0.8, label.scale=FALSE,
-  groups=totalgroup_comm, color=totalgroup_cols,
-  legend = TRUE, legend.cex = 0.3, borders = FALSE)
-dev.off()
-
 #Multiplot
 pdf(here("Output", "class.pdf"), 
     height = 5, width = 12)
@@ -486,7 +484,7 @@ v_factor_levels <- c("Low", "High")
 c_all$measure <- factor(c_all$measure, levels = c("Education", "Income", "Social class"))
 
 
-graph_centrality = ggplot(c_all, aes(y=value, x=reorder(name, desc(name)), fill=factor(group, levels = v_factor_levels))) + 
+graph_centrality = ggplot(c_all, aes(y=value, x=reorder(name, dplyr::desc(name)), fill=factor(group, levels = v_factor_levels))) + 
     geom_bar(position="dodge", stat="identity") +
     facet_grid(~measure, drop = FALSE) +
   coord_flip() +
@@ -589,7 +587,7 @@ v_factor_levels <- c("Low", "High")
 c_all$measure <- factor(c_all$measure, levels = c("Education", "Income", "Social class"))
 
 
-graph_centrality_std = ggplot(c_all, aes(y=value, x=reorder(name, desc(name)), fill=factor(group, levels = v_factor_levels))) + 
+graph_centrality_std = ggplot(c_all, aes(y=value, x=reorder(name, dplyr::desc(name)), fill=factor(group, levels = v_factor_levels))) + 
     geom_bar(position="dodge", stat="identity") +
     facet_grid(~measure, drop = FALSE) +
   coord_flip() +
@@ -677,12 +675,15 @@ ggsave(here("Output", "graph_connectivity.jpg"), graph_connectivity, height = 6,
 graph_connectivity
 ```
 
-# Output
 
+# Output
 
 ## Edge weight to excel
 
 ```{r}
+
+dir.create(here("Output", "Robustness"))
+
 #Full network
 EdgeWeight_Total_full<-upper.triangle(ggm_chi)
 EdgeWeight_Total_full[EdgeWeight_Total_full == 0] <- NA
