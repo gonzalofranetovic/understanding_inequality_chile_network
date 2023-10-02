@@ -1,7 +1,8 @@
 ---
-title: "221220 - mgm_chile"
+title: "How do people understand inequality in Chile? A study through attitude network analysis"
+subtitle: "Network"
+author: "Gonzalo Franetovic and Arturo Bertero"
 output: html_document
-date: "2022-12-20"
 ---
 
 ```{r setup, include=FALSE}
